@@ -1,0 +1,10 @@
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters><parameter name="version" required="true" /></parameters>
+  <zip-file>
+    <pe-file-set product-name="VSME Remote Control" product-version="${version}" file-version="${version}">
+      <include path="Control-core.exe" />
+      <include path="Agent-core.exe" />
+      <for-each><authenticode-sign /></for-each>
+    </pe-file-set>
+  </zip-file>
+</artifact-configuration>

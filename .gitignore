@@ -1,0 +1,15 @@
+/artifacts/
+/.tools/
+*.exe
+*.dll
+*.syso
+*.zip
+*.pfx
+*.p12
+*.pem
+*.key
+identity.json
+fleet.json
+servers.json
+*.log
+/.env*

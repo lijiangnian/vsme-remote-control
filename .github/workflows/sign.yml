@@ -1,0 +1,96 @@
+name: Trusted signing (requires service approval)
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Four-part product version
+        required: true
+        default: '2.1.2.0'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  sign:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-2022
+    timeout-minutes: 60
+    environment: production-signing
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+      SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+      SIGNPATH_POLICY_SLUG: ${{ vars.SIGNPATH_POLICY_SLUG }}
+      SIGNPATH_SIGNER_THUMBPRINT: ${{ vars.SIGNPATH_SIGNER_THUMBPRINT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Fail closed if service or version is not configured
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+\.\d+$') { throw 'Invalid version' }
+          foreach ($key in @('SIGNPATH_API_TOKEN','SIGNPATH_ORGANIZATION_ID','SIGNPATH_PROJECT_SLUG','SIGNPATH_POLICY_SLUG','SIGNPATH_SIGNER_THUMBPRINT')) {
+            if (-not [Environment]::GetEnvironmentVariable($key)) { throw "Missing signing setting: $key; no signing requested." }
+          }
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Audit and build cores
+        shell: pwsh
+        run: |
+          ./tools/Audit-PublicSource.ps1
+          ./tools/Build.ps1 -Stage Cores -Version $env:RELEASE_VERSION
+      - id: cores
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unsigned-cores
+          path: artifacts/Core/*.exe
+          if-no-files-found: error
+      - name: Sign engines first (manual SignPath approval)
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: cores
+          github-artifact-id: ${{ steps.cores.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: artifacts/Core
+          parameters: |
+            version: ${{ toJSON(inputs.version) }}
+      - name: Verify engines and embed signed bytes into native UI
+        shell: pwsh
+        run: |
+          ./tools/Verify-Signatures.ps1 -Root artifacts/Core -CoresOnly -ExpectedSignerThumbprint $env:SIGNPATH_SIGNER_THUMBPRINT
+          ./tools/Build.ps1 -Stage Wrappers -Version $env:RELEASE_VERSION
+      - id: wrappers
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unsigned-wrappers-signed-cores
+          path: artifacts/Windows/*.exe
+          if-no-files-found: error
+      - name: Sign native wrappers (manual SignPath approval)
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          artifact-configuration-slug: wrappers
+          github-artifact-id: ${{ steps.wrappers.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: artifacts/Windows
+          parameters: |
+            version: ${{ toJSON(inputs.version) }}
+      - name: Final outer and embedded signature verification
+        shell: pwsh
+        run: ./tools/Verify-Signatures.ps1 -ExpectedSignerThumbprint $env:SIGNPATH_SIGNER_THUMBPRINT | ConvertTo-Json | Set-Content -Encoding utf8 artifacts/signature-report.json
+      - name: Store verified Windows artifacts, not an automatic release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-signed-windows
+          if-no-files-found: error
+          path: |
+            artifacts/Windows/*.exe
+            artifacts/signature-report.json

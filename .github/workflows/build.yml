@@ -1,0 +1,37 @@
+name: Public source validation (unsigned development only)
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Check public source
+        shell: pwsh
+        run: ./tools/Audit-PublicSource.ps1
+      - name: Tests, versioned Windows cores and Mac cross-builds
+        shell: pwsh
+        run: ./tools/Build.ps1 -Stage Cores -Version 2.1.2.0
+      - name: Development-only native UI compilation
+        shell: pwsh
+        run: ./tools/Build.ps1 -Stage Wrappers -Version 2.1.2.0 -UnsignedDevelopmentOnly
+      - name: Store explicitly unsigned development artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unsigned-development-only
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            artifacts/Core/*.exe
+            artifacts/Windows/*.exe
+            artifacts/Mac/*

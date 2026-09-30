@@ -1,0 +1,9 @@
+VSME Remote Control
+Copyright 2026 VSME Remote Control contributors
+Licensed under the Apache License, Version 2.0.
+
+This candidate separates deployment-specific authorization from public source.
+Company branding assets, private configurations and SSH bindings are excluded.
+Go and .NET system/runtime components retain their respective licenses.
+The build-only tool goversioninfo v1.7.0 is MIT licensed and is not embedded
+as a separately executable third-party tool in the distributed application.
