@@ -1,6 +1,8 @@
 # Code signing policy 与申请进度
 
-2026-09-30：仅本地准备阶段。没有签名证书、SignPath 账号配置或批准记录；仓库尚未创建，申请尚未提交。不能保证申请通过，也不能给出批准日期。
+2026-09-30：公开仓库已创建，脱敏源码已上传，GitHub-hosted CI 已通过。没有签名证书、SignPath 账号配置或批准记录；申请尚未提交。不能保证申请通过，也不能给出批准日期。
+
+仓库：https://github.com/lijiangnian/vsme-remote-control 。已通过的公开源码构建：https://github.com/lijiangnian/vsme-remote-control/actions/runs/36691615885 ，源码提交 `da2a479e4b8356f0dcad2e848f71974b04e33de6`。此构建只产出未签名开发二进制，不是可信发布。
 
 ## 选择与边界
 
@@ -20,7 +22,7 @@
 
 ## GitHub / SignPath 管理员配置
 
-仓库计划为 `lijiangnian/vsme-remote-control`。需要所有者创建公开仓库，安装官方 SignPath GitHub App 并授予该仓库访问，开启 MFA，建立签名批准角色。现有代码不是上述服务的正式审批结果。
+公开仓库为 `lijiangnian/vsme-remote-control`。仍需要所有者安装官方 SignPath GitHub App 并授予该仓库访问，开启 MFA，建立签名批准角色。现有代码不是上述服务的正式审批结果。
 
 批准后配置 GitHub secrets `SIGNPATH_API_TOKEN`，变量 `SIGNPATH_ORGANIZATION_ID`、`SIGNPATH_PROJECT_SLUG`、`SIGNPATH_POLICY_SLUG`、`SIGNPATH_SIGNER_THUMBPRINT`（由服务确认的签名证书指纹）；对应项目配置 `cores` 与 `wrappers` artifact configuration。令牌不可写入 YAML、日志、源码或 ZIP。
 
